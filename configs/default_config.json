@@ -1,0 +1,18 @@
+{
+    "fields": [
+        "full_name",
+        "email",
+        "phone",
+        "company",
+        "title",
+        "city",
+        "country",
+        "skills"
+    ],
+
+    "include_confidence": true,
+
+    "include_provenance": true,
+
+    "on_missing": "null"
+}
