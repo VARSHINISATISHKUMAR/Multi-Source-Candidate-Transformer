@@ -2,11 +2,20 @@
 
 ## Overview
 
-This project implements a configurable candidate data transformation pipeline that ingests information from multiple heterogeneous sources, reconciles conflicting values, and produces a single canonical candidate profile.
+This project implements a configurable multi-source candidate data transformation pipeline that ingests candidate information from multiple structured and unstructured sources, reconciles conflicting values, and produces a single canonical candidate profile.
 
-The system demonstrates end-to-end data integration, including extraction, normalization, reconciliation, provenance tracking, confidence scoring, configurable schema projection, and validation.
+The pipeline supports configurable runtime output schemas, allowing different consumers to receive different output formats without modifying the core pipeline logic.
 
-The design emphasizes explainability, deterministic behavior, and graceful handling of incomplete or conflicting candidate data.
+The design emphasizes:
+
+- Data normalization
+- Identity resolution
+- Deterministic conflict resolution
+- Confidence scoring
+- Provenance tracking
+- Runtime schema projection
+- Validation
+- Explainability
 
 ---
 
@@ -15,7 +24,7 @@ The design emphasizes explainability, deterministic behavior, and graceful handl
 ## Structured Sources
 
 - Recruiter CSV
-- ATS JSON
+- ATS JSON Export
 
 ## Unstructured Sources
 
@@ -27,7 +36,7 @@ The design emphasizes explainability, deterministic behavior, and graceful handl
 
 # Canonical Candidate Schema
 
-Every candidate is transformed into a standard canonical representation.
+Every candidate is transformed into a standard canonical representation before any runtime projection.
 
 ```json
 {
@@ -69,7 +78,8 @@ Every candidate is transformed into a standard canonical representation.
   },
   "skills": {
     "value": [
-      "..."
+      "Python",
+      "SQL"
     ],
     "confidence": 92.0,
     "provenance": [...]
@@ -82,50 +92,64 @@ Every candidate is transformed into a standard canonical representation.
 
 # Pipeline Architecture
 
-```
+```text
                   INPUT SOURCES
                          │
-      ┌──────────────────┼──────────────────┐
-      │                  │                  │
-   CSV Parser       JSON Parser      Resume Parser
-                                        │
-                              TXT / PDF / DOCX
-                                        │
-                                        ▼
-                              Text Extraction
-                                        │
-                                        ▼
-                             Field Extraction
-                                        │
-                                        ▼
-                              Normalization
-                                        │
-                                        ▼
-                           Candidate Grouping
-                                        │
-                                        ▼
-                              Reconciliation
-                                        │
-                                        ▼
-                           Confidence Scoring
-                                        │
-                                        ▼
-                           Schema Projection
-                                        │
-                                        ▼
-                                Validation
-                                        │
-                                        ▼
-                                 output.json
+     ┌────────────┬────────────┬────────────┐
+     │            │            │
+ Recruiter     ATS JSON     Resume
+    CSV                    PDF/DOCX/TXT
+     │            │            │
+     └────────────┴────────────┘
+                  │
+                  ▼
+            File Detection
+                  │
+                  ▼
+           Data Extraction
+                  │
+                  ▼
+            Normalization
+                  │
+                  ▼
+         Identity Resolution
+                  │
+                  ▼
+         Candidate Merging
+                  │
+                  ▼
+      Confidence Calculation
+                  │
+                  ▼
+        Provenance Tracking
+                  │
+                  ▼
+       Canonical Candidate
+                  │
+          ┌───────┴─────────┐
+          │                 │
+          ▼                 ▼
+canonical_output.json   Runtime Projection
+                                │
+                                ▼
+                    Configurable Output
 ```
 
 ---
 
 # Design Decisions
 
-### 1. Email-based Candidate Resolution
+### 1. Identity Resolution
 
-Email is used as the primary candidate identifier because it is generally unique across candidate records and remains consistent across different data sources.
+Candidates are grouped using a deterministic matching strategy.
+
+Priority order:
+
+1. Email
+2. Phone Number
+3. New Candidate
+
+Using multiple identifiers reduces duplicate candidate records while avoiding incorrect merges.
 
 ---
 
@@ -135,12 +159,20 @@ Conflicting values are resolved using configurable source trust.
 
 Default trust order:
 
-```
-CSV
->
-JSON
->
-Resume (PDF / DOCX / TXT)
+```text
+Recruiter CSV
+      │
+      ▼
+ATS JSON
+      │
+      ▼
+Resume PDF
+      │
+      ▼
+Resume DOCX
+      │
+      ▼
+Resume TXT
 ```
 
 Structured recruiter data is considered the most reliable, followed by ATS exports, while resume extraction is treated as less reliable due to free-form text parsing.
@@ -155,10 +187,11 @@ Examples include:
 
 - Phone number normalization
 - Email normalization
-- Skill formatting
 - Name cleanup
+- Skill formatting
+- Location normalization
 
-This reduces false conflicts during merging.
+This significantly reduces false conflicts during candidate merging.
 
 ---
 
@@ -170,50 +203,39 @@ Every selected field retains provenance information including:
 - Original value
 - Confidence
 
-This makes every merge decision transparent and auditable.
+This makes every merge decision transparent, deterministic, and auditable.
 
 ---
 
 ### 5. Configurable Output Schema
 
-Output fields are not hardcoded.
+The pipeline internally maintains a complete canonical candidate profile.
 
-The pipeline projects the canonical candidate into any configured schema through JSON configuration files.
+The final output is generated by projecting this canonical profile using runtime configuration files, allowing different consumers to receive customized schemas without modifying the transformation logic.
 
 ---
 
 # Confidence Scoring
 
-Each field receives a confidence score using three weighted signals.
+Each field receives a confidence score based on multiple quality signals, including:
 
-| Signal | Weight |
-|---------|--------|
-| Source Trust | 50% |
-| Agreement Across Sources | 35% |
-| Extraction Reliability | 15% |
+- Source trust
+- Agreement across sources
+- Extraction reliability
+- Conflict penalties (when applicable)
 
-Conflicting values receive an additional penalty.
+Higher confidence indicates greater reliability of the selected value.
 
-### Formula
-
-```
-Confidence =
-0.50 × Source Trust
-+ 0.35 × Agreement Ratio
-+ 0.15 × Extraction Reliability
-− Conflict Penalty
-```
-
-Overall candidate confidence is calculated as the average of all field confidence scores.
+Overall candidate confidence is calculated as the average confidence across all canonical fields.
 
 ---
 
 # Provenance Tracking
 
-Every field records:
+Every canonical field records:
 
 - Selected value
-- Contributing source
+- Contributing source(s)
 - Confidence score
 - Alternative values from other sources
 
@@ -221,30 +243,53 @@ Example:
 
 ```json
 "company": {
-    "value": "Google",
-    "confidence": 92.5,
-    "provenance": [
-        {
-            "source": "csv",
-            "value": "Google"
-        },
-        {
-            "source": "json",
-            "value": "Google LLC"
-        },
-        {
-            "source": "pdf",
-            "value": "Google"
-        }
-    ]
+  "value": "Google",
+  "confidence": 92.5,
+  "provenance": [
+    {
+      "source": "csv",
+      "value": "Google"
+    },
+    {
+      "source": "json",
+      "value": "Google LLC"
+    },
+    {
+      "source": "pdf",
+      "value": "Google"
+    }
+  ]
 }
 ```
 
 ---
 
+# Runtime Configuration
+
+The pipeline separates the internal canonical representation from the final output schema.
+
+Each execution accepts a runtime configuration file that controls:
+
+- Fields to include
+- Field mappings
+- Provenance inclusion
+- Confidence inclusion
+- Missing value handling
+- Output schema projection
+
+Example:
+
+```bash
+python src/main.py --config configs/companyA.json
+```
+
+No code changes are required to generate different output schemas.
+
+---
+
 # Configuration
 
-The pipeline behavior is controlled using JSON configuration files.
+Pipeline behavior is controlled using JSON configuration files.
 
 Supported options include:
 
@@ -254,7 +299,7 @@ Supported options include:
 - Schema projection
 - Output field mappings
 
-No code changes are required to modify these behaviors.
+This makes the pipeline highly configurable without modifying the implementation.
 
 ---
 
@@ -266,7 +311,9 @@ No code changes are required to modify these behaviors.
 pip install -r requirements.txt
 ```
 
-## Execute
+---
+
+## Run using the default configuration
 
 ```bash
 python src/main.py
@@ -274,9 +321,27 @@ python src/main.py
 
 ---
 
+## Run using a custom runtime configuration
+
+```bash
+python src/main.py --config configs/companyA.json
+```
+
+---
+
+## Specify a custom output file
+
+```bash
+python src/main.py \
+    --config configs/companyA.json \
+    --output sample_outputs/companyA_output.json
+```
+
+---
+
 # Edge Cases Handled
 
-The pipeline gracefully handles several real-world data quality issues.
+The pipeline gracefully handles numerous real-world data quality issues.
 
 - Missing source files
 - Missing candidate fields
@@ -287,22 +352,23 @@ The pipeline gracefully handles several real-world data quality issues.
 - Conflicting field values
 - Multiple phone number formats
 - Missing required fields
-- Empty skills list
+- Empty skills lists
 - Malformed CSV rows
 - Unsupported source values
-- No matching candidate identifiers
+- Candidates without matching identifiers
 
-The pipeline continues processing remaining valid sources whenever possible.
+Whenever possible, the pipeline continues processing remaining valid sources instead of terminating.
 
 ---
 
 # Assumptions
 
-- Email uniquely identifies a candidate.
+- Email is the preferred candidate identifier.
+- Phone number is used as a fallback identifier.
 - Missing values never overwrite valid values.
 - Source trust determines conflict resolution.
 - PDF and DOCX resumes are converted to plain text before extraction.
-- Output always conforms to the configured schema.
+- Runtime outputs are always derived from the canonical candidate profile.
 
 ---
 
@@ -315,24 +381,63 @@ The pipeline continues processing remaining valid sources whenever possible.
 - CSV
 - JSON
 - Regular Expressions
+- argparse
 
 ---
 
 # Output
 
-The pipeline produces:
+The pipeline produces two outputs.
 
+## 1. Canonical Output
+
+```text
+sample_outputs/canonical_output.json
 ```
-output.json
-```
 
-containing:
-
-- Canonical candidate profile
-- Provenance
-- Confidence scores
-- Schema-valid JSON
+Contains the complete standardized candidate profile generated after normalization, reconciliation, confidence scoring, and provenance tracking.
 
 ---
 
+## 2. Runtime Output
 
+```text
+sample_outputs/output.json
+```
+
+(or any filename specified using the `--output` argument)
+
+Contains the candidate projected according to the selected runtime configuration.
+
+Different runtime configuration files can generate different output schemas while the canonical candidate remains unchanged.
+
+---
+
+# Folder Structure
+
+```text
+Multi-Source-Candidate-Data-Transformer/
+│
+├── configs/
+│   ├── default_config.json
+│   ├── companyA.json
+│   └── ...
+│
+├── sample_inputs/
+│   ├── recruiter_data.csv
+│   ├── ats_export.json
+│   ├── candidate_resume.pdf
+│   ├── candidate_resume.docx
+│   └── candidate_resume.txt
+│
+├── sample_outputs/
+│   ├── canonical_output.json
+│   └── output.json
+│
+├── src/
+│
+├── tests/
+│
+├── README.md
+└── requirements.txt
+```
