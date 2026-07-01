@@ -1,0 +1,155 @@
+[
+    {
+        "candidate_id": {
+            "value": null,
+            "confidence": 0,
+            "provenance": []
+        },
+        "full_name": {
+            "value": "John Smith",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "John Smith"
+                },
+                {
+                    "source": "csv",
+                    "value": "John Smith"
+                },
+                {
+                    "source": "pdf",
+                    "value": "John Smith"
+                }
+            ]
+        },
+        "email": {
+            "value": "john.smith@gmail.com",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "john.smith@gmail.com"
+                },
+                {
+                    "source": "csv",
+                    "value": "john.smith@gmail.com"
+                },
+                {
+                    "source": "pdf",
+                    "value": "john.smith@gmail.com"
+                }
+            ]
+        },
+        "phone": {
+            "value": "+919876543217",
+            "confidence": 43.33,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "+919876543210"
+                },
+                {
+                    "source": "csv",
+                    "value": "+919876543217"
+                },
+                {
+                    "source": "pdf",
+                    "value": "+919876543210"
+                }
+            ]
+        },
+        "company": {
+            "value": "Google",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "Google"
+                },
+                {
+                    "source": "csv",
+                    "value": "Google"
+                },
+                {
+                    "source": "pdf",
+                    "value": "Google"
+                }
+            ]
+        },
+        "title": {
+            "value": "Software Engineer",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "Software Engineer"
+                },
+                {
+                    "source": "csv",
+                    "value": "Software Engineer"
+                },
+                {
+                    "source": "pdf",
+                    "value": "Software Engineer"
+                }
+            ]
+        },
+        "city": {
+            "value": "Chennai",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "Chennai"
+                },
+                {
+                    "source": "csv",
+                    "value": "Chennai"
+                }
+            ]
+        },
+        "country": {
+            "value": "IN",
+            "confidence": 100.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": "IN"
+                },
+                {
+                    "source": "csv",
+                    "value": "IN"
+                }
+            ]
+        },
+        "skills": {
+            "value": [
+                "Python",
+                "Java",
+                "SQL",
+                "Machine Learning"
+            ],
+            "confidence": 25.0,
+            "provenance": [
+                {
+                    "source": "json",
+                    "value": [
+                        "Python",
+                        "Java",
+                        "SQL"
+                    ]
+                },
+                {
+                    "source": "pdf",
+                    "value": [
+                        "Python",
+                        "Java",
+                        "SQL",
+                        "Machine Learning"
+                    ]
+                }
+            ]
+        }
+    }
+]

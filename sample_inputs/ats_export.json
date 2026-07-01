@@ -1,0 +1,22 @@
+{
+    "candidate_id": "C001",
+    "full_name": "John Smith",
+    "email": "john.smith@gmail.com",
+    "phone": "+91-9876543210",
+
+    "location": {
+        "city": "Chennai",
+        "country": "India"
+    },
+
+    "experience": {
+        "company": "Google",
+        "title": "Software Engineer"
+    },
+
+    "skills": [
+        "Python",
+        "Java",
+        "SQL"
+    ]
+}

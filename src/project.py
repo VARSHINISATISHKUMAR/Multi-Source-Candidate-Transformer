@@ -2,36 +2,99 @@ import json
 
 
 def load_config(config_path):
-
+    """
+    Load runtime configuration JSON.
+    """
     with open(config_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def project_candidate(candidate, config):
+    """
+    Project the canonical candidate into the output format
+    requested by the runtime configuration.
+    """
 
     output = {}
 
-    for field in config["fields"]:
+    fields = config.get("fields", [])
 
-        if field not in candidate:
+    include_confidence = config.get(
+        "include_confidence",
+        True
+    )
 
-            if config["on_missing"] == "null":
-                output[field] = None
+    include_provenance = config.get(
+        "include_provenance",
+        True
+    )
+
+    on_missing = config.get(
+        "on_missing",
+        "null"
+    )
+
+    for field in fields:
+
+        # ----------------------------
+        # Support both
+        #
+        # "full_name"
+        #
+        # and
+        #
+        # {
+        #   "from":"full_name",
+        #   "path":"candidate_name"
+        # }
+        # ----------------------------
+
+        if isinstance(field, str):
+
+            source_field = field
+            output_field = field
+
+        else:
+
+            source_field = field.get("from")
+            output_field = field.get("path", source_field)
+
+        # ----------------------------
+        # Missing field
+        # ----------------------------
+
+        if source_field not in candidate:
+
+            if on_missing == "null":
+
+                output[output_field] = None
+
+            elif on_missing == "omit":
+
+                continue
+
+            elif on_missing == "error":
+
+                raise KeyError(
+                    f"Missing field: {source_field}"
+                )
 
             continue
 
-        details = candidate[field]
+        details = candidate[source_field]
 
         field_output = {
             "value": details["value"]
         }
 
-        if config["include_confidence"]:
+        if include_confidence:
+
             field_output["confidence"] = details["confidence"]
 
-        if config["include_provenance"]:
+        if include_provenance:
+
             field_output["provenance"] = details["provenance"]
 
-        output[field] = field_output
+        output[output_field] = field_output
 
     return output

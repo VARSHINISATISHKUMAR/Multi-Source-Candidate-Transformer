@@ -3,17 +3,14 @@
         "candidate_id",
         "full_name",
         "email",
-        "phone",
+        "skills",
         "company",
-        "title",
-        "city",
-        "country",
-        "skills"
+        "title"
     ],
 
     "include_confidence": true,
 
-    "include_provenance": true,
+    "include_provenance": false,
 
     "on_missing": "null"
 }

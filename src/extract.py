@@ -33,19 +33,39 @@ def extract_csv(file_path):
 
 def extract_json(file_path):
 
+    """
+    Extract candidate information from an ATS JSON export.
+    """
+
     with open(file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
 
+    experience = data.get("experience", {})
+
+    location = data.get("location", {})
+
     return [{
+
         "source": "json",
-        "full_name": data.get("name"),
+
+        "candidate_id": data.get("candidate_id"),
+
+        "full_name": data.get("full_name"),
+
         "email": data.get("email"),
+
         "phone": data.get("phone"),
-        "company": None,
-        "title": None,
-        "city": data.get("location", {}).get("city"),
-        "country": data.get("location", {}).get("country"),
+
+        "company": experience.get("company"),
+
+        "title": experience.get("title"),
+
+        "city": location.get("city"),
+
+        "country": location.get("country"),
+
         "skills": data.get("skills", [])
+
     }]
 
 
@@ -55,45 +75,153 @@ def extract_json(file_path):
 
 def extract_resume_text(text, source_name):
 
-    email = re.search(r'[\w\.-]+@[\w\.-]+', text)
-    phone = re.search(r'(\+?\d[\d\s\-]{8,}\d)', text)
+    # ---------------------------------------------
+    # Basic Information
+    # ---------------------------------------------
 
-    lines = text.splitlines()
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+', text)
 
-    full_name = lines[0].strip() if lines else None
+    phone_match = re.search(r'(\+?\d[\d\s\-]{8,}\d)', text)
+
+    email = email_match.group() if email_match else None
+    phone = phone_match.group() if phone_match else None
+
+    # ---------------------------------------------
+    # Clean lines
+    # ---------------------------------------------
+
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+    full_name = lines[0] if lines else None
 
     company = None
     title = None
-
-    if "Google" in text:
-        company = "Google"
-
-    if "Software Engineer" in text:
-        title = "Software Engineer"
-
+    city = None
+    country = None
     skills = []
 
-    for skill in [
-        "Python",
-        "Java",
-        "SQL",
-        "Machine Learning"
-    ]:
-        if skill.lower() in text.lower():
-            skills.append(skill)
+    # ---------------------------------------------
+    # Location
+    # ---------------------------------------------
+
+    for line in lines:
+
+        if line.lower().startswith("location"):
+
+            location = line.split(":", 1)[-1].strip()
+
+            parts = [x.strip() for x in location.split(",")]
+
+            if len(parts) >= 1:
+                city = parts[0]
+
+            if len(parts) >= 2:
+                country = parts[1]
+
+            break
+
+    # ---------------------------------------------
+    # Skills Section
+    # ---------------------------------------------
+
+    if "Skills" in lines:
+
+        start = lines.index("Skills") + 1
+
+        end = len(lines)
+
+        section_headers = {
+            "Experience",
+            "Education",
+            "Projects",
+            "Certifications",
+            "Professional Summary",
+            "Summary"
+        }
+
+        for i in range(start, len(lines)):
+
+            if lines[i] in section_headers:
+
+                end = i
+                break
+
+        skills = lines[start:end]
+
+    # ---------------------------------------------
+    # Experience Section
+    # ---------------------------------------------
+
+    experience_headers = [
+        "Experience",
+        "Work Experience",
+        "Professional Experience"
+    ]
+
+    experience_index = None
+
+    for header in experience_headers:
+
+        if header in lines:
+
+            experience_index = lines.index(header)
+            break
+
+    if experience_index is not None:
+
+        experience_lines = lines[experience_index + 1:]
+
+        # Remove dates
+
+        experience_lines = [
+
+            line
+
+            for line in experience_lines
+
+            if not re.search(
+                r'\b(19|20)\d{2}\b',
+                line
+            )
+        ]
+
+        if len(experience_lines) >= 1:
+            company = experience_lines[0]
+
+        if len(experience_lines) >= 2:
+            title = experience_lines[1]
+
+    # ---------------------------------------------
+    # Return Candidate Record
+    # ---------------------------------------------
 
     return [{
-        "source": source_name,
-        "full_name": full_name,
-        "email": email.group() if email else None,
-        "phone": phone.group() if phone else None,
-        "company": company,
-        "title": title,
-        "city": "Chennai",
-        "country": "India",
-        "skills": skills
-    }]
 
+        "source": source_name,
+
+        "candidate_id": None,
+
+        "full_name": full_name,
+
+        "email": email,
+
+        "phone": phone,
+
+        "company": company,
+
+        "title": title,
+
+        "city": city,
+
+        "country": country,
+
+        "skills": skills
+
+    }]
 
 # --------------------------------------------------
 # TXT

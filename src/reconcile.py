@@ -9,89 +9,148 @@ Match key priority (highest confidence first):
 Records with no usable key become their own singleton group instead of
 being silently dropped — "robust" per the spec means nothing disappears.
 """
-from collections import defaultdict
-from typing import Dict, List
-
 from confidence import calculate_field_confidence
 
-SOURCE_PRIORITY = ["csv", "json", "txt"]
-
-FIELDS = ["full_name", "email", "phone", "company", "title", "city", "country", "skills"]
-
-
-def _key(value) -> str | None:
-    if not value:
-        return None
-    return str(value).strip().lower()
+SOURCE_PRIORITY = [
+    "csv",
+    "ats_json",
+    "pdf",
+    "docx",
+    "txt"
+]
 
 
-def group_candidates(records: List[dict]) -> Dict[str, List[dict]]:
-    by_email: Dict[str, List[dict]] = defaultdict(list)
-    remaining: List[dict] = []
+def build_candidate_key(record):
+    """
+    Build a matching key for identity resolution.
+
+    Priority:
+    1. Email
+    2. Phone
+    3. Full Name + Phone
+    """
+
+    email = record.get("email")
+    phone = record.get("phone")
+    full_name = record.get("full_name")
+
+    if email:
+        return ("email", email.lower())
+
+    if phone:
+        return ("phone", phone)
+
+    if full_name and phone:
+        return (
+            "name_phone",
+            f"{full_name.strip().lower()}|{phone}"
+        )
+
+    return None
+
+
+def group_candidates(records):
+
+    grouped = {}
+
+    unmatched = []
 
     for record in records:
-        email_key = _key(record.get("email"))
-        if email_key:
-            by_email[f"email:{email_key}"].append(record)
-        else:
-            remaining.append(record)
 
-    by_phone: Dict[str, List[dict]] = defaultdict(list)
-    still_remaining: List[dict] = []
+        key = build_candidate_key(record)
 
-    for record in remaining:
-        phone_key = _key(record.get("phone"))
-        if phone_key:
-            by_phone[f"phone:{phone_key}"].append(record)
-        else:
-            still_remaining.append(record)
+        if key is None:
 
-    by_name_phone: Dict[str, List[dict]] = defaultdict(list)
-    orphans: List[dict] = []
+            unmatched.append(record)
+            continue
 
-    for record in still_remaining:
-        name_key = _key(record.get("full_name"))
-        phone_key = _key(record.get("phone"))
-        if name_key and phone_key:
-            by_name_phone[f"name_phone:{name_key}|{phone_key}"].append(record)
-        else:
-            orphans.append(record)
+        if key not in grouped:
+            grouped[key] = []
 
-    grouped: Dict[str, List[dict]] = {}
-    grouped.update(by_email)
-    grouped.update(by_phone)
-    grouped.update(by_name_phone)
-    for i, record in enumerate(orphans):
-        grouped[f"orphan:{i}"] = [record]
+        grouped[key].append(record)
+
+    # Records that cannot be matched
+    for index, record in enumerate(unmatched):
+
+        grouped[("unknown", index)] = [record]
 
     return grouped
 
 
-def merge_candidate(records: List[dict]) -> dict:
+def merge_candidate(records):
+
     canonical = {}
 
-    for field in FIELDS:
+    fields = [
+        "candidate_id",
+        "full_name",
+        "email",
+        "phone",
+        "company",
+        "title",
+        "city",
+        "country",
+        "skills"
+    ]
+
+    for field in fields:
+
         chosen_record = None
 
         for source in SOURCE_PRIORITY:
+
             for record in records:
-                if record.get("source") == source and record.get(field):
+
+                if (
+                    record.get("source") == source
+                    and record.get(field)
+                ):
                     chosen_record = record
                     break
+
             if chosen_record:
                 break
 
         if chosen_record:
-            provenance = [
-                {"source": r["source"], "value": r[field]}
-                for r in records if r.get(field)
-            ]
+
+            provenance = []
+
+            for record in records:
+
+                if record.get(field):
+
+                    provenance.append({
+
+                        "source": record["source"],
+
+                        "value": record[field]
+
+                    })
+
             canonical[field] = {
+
                 "value": chosen_record[field],
-                "confidence": calculate_field_confidence(field, chosen_record, records),
-                "provenance": provenance,
+
+                "confidence": calculate_field_confidence(
+                    field,
+                    chosen_record,
+                    records
+                ),
+
+                "provenance": provenance
+
             }
+
         else:
-            canonical[field] = {"value": None, "confidence": 0.0, "provenance": []}
+
+            canonical[field] = {
+
+                "value": None,
+
+                "confidence": 0,
+
+                "provenance": []
+
+            }
 
     return canonical

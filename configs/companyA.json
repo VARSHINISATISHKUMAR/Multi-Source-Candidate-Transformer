@@ -1,0 +1,13 @@
+{
+    "fields": [
+        "candidate_id",
+        "full_name",
+        "email"
+    ],
+
+    "include_confidence": false,
+
+    "include_provenance": false,
+
+    "on_missing": "omit"
+}

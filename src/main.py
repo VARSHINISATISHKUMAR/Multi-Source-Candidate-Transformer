@@ -12,13 +12,26 @@ from project import load_config, project_candidate
 from validate import validate_candidate
 from utils import save_json
 from schema import CanonicalCandidate
+from pathlib import Path
+import argparse
 
 
-files = [
-    "sample_inputs/candidates.csv",
-    "sample_inputs/resume.pdf",
-    "sample_inputs/profile.json"
-]
+INPUT_FOLDER = Path("sample_inputs")
+
+SUPPORTED_EXTENSIONS = {
+    ".csv",
+    ".txt",
+    ".json",
+    ".pdf"
+}
+
+files = sorted(
+    [
+        str(file)
+        for file in INPUT_FOLDER.iterdir()
+        if file.is_file() and file.suffix.lower() in SUPPORTED_EXTENSIONS
+    ]
+)
 
 
 all_records = []
@@ -53,6 +66,31 @@ for file in files:
 
         all_records.append(record)
 
+# -----------------------------------------
+# Runtime Configuration Arguments
+# -----------------------------------------
+
+parser = argparse.ArgumentParser(
+    description="Multi-Source Candidate Data Transformer"
+)
+
+parser.add_argument(
+    "--config",
+    default="configs/default_config.json",
+    help="Path to runtime configuration JSON"
+)
+
+parser.add_argument(
+    "--output",
+    default="sample_outputs/output.json",
+    help="Output JSON file"
+)
+
+args = parser.parse_args()
+
+config = load_config(args.config)
+
+
 
 groups = group_candidates(all_records)
 
@@ -60,31 +98,66 @@ print("\n==============================")
 print("MERGED CANDIDATE PROFILES")
 print("==============================\n")
 
+# Stores canonical candidates
+canonical_output = []
 
-config = load_config("configs/default_config.json")
-
-print("\nUSING DEFAULT CONFIG\n")
+# Stores runtime projected candidates
+runtime_output = []
 
 for email, records in groups.items():
 
-    # Merge candidate into canonical dictionary
     candidate = merge_candidate(records)
 
-    # Convert dictionary to Pydantic model
-    candidate_model = CanonicalCandidate(**candidate)
-    
+candidate_model = CanonicalCandidate(**candidate)
 
-    # Convert back to dictionary for projection
-    projected = project_candidate(
-        candidate_model.model_dump(),
-        config
-    )
+# -----------------------------
+# Store Canonical Candidate
+# -----------------------------
+canonical_candidate = candidate_model.model_dump()
 
-    validate_candidate(projected)
+canonical_output.append(
+    canonical_candidate
+)
 
-    save_json(
-        projected,
-        "sample_outputs/output.json"
-    )
+# -----------------------------
+# Runtime Projection
+# -----------------------------
+projected = project_candidate(
+    canonical_candidate,
+    config
+)
 
-print("Output written successfully.")
+validate_candidate(projected)
+
+runtime_output.append(projected)
+
+# Save ALL candidates once
+# -----------------------------------
+# Save Canonical Profile
+# -----------------------------------
+
+save_json(
+    canonical_output,
+    "sample_outputs/canonical_output.json"
+)
+
+# -----------------------------------
+# Save Runtime Projection
+# -----------------------------------
+
+save_json(
+    runtime_output,
+    args.output
+)
+
+
+print("\nPipeline completed successfully.")
+
+print(
+    "\nCanonical profile saved to : "
+    "sample_outputs/canonical_output.json"
+)
+
+print(
+    f"Runtime output saved to : {args.output}"
+)

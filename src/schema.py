@@ -43,15 +43,17 @@ class RawRecord(BaseModel):
 
 
 class CanonicalCandidate(BaseModel):
-    """Internal merged record — every field is a FieldValue, never a bare value."""
-    full_name: FieldValue = Field(default_factory=FieldValue)
-    email: FieldValue = Field(default_factory=FieldValue)
-    phone: FieldValue = Field(default_factory=FieldValue)
-    company: FieldValue = Field(default_factory=FieldValue)
-    title: FieldValue = Field(default_factory=FieldValue)
-    city: FieldValue = Field(default_factory=FieldValue)
-    country: FieldValue = Field(default_factory=FieldValue)
-    skills: FieldValue = Field(default_factory=FieldValue)
+
+    candidate_id: dict | None = None
+
+    full_name: dict
+    email: dict
+    phone: dict
+    company: dict | None = None
+    title: dict | None = None
+    city: dict | None = None
+    country: dict | None = None
+    skills: dict | None = None
 
 
 class OutputConfig(BaseModel):
